@@ -1,0 +1,1 @@
+deno run --allow-net --allow-run --allow-write=./policy.ts main.ts 
