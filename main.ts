@@ -1,6 +1,9 @@
 import { Application, Router } from "https://deno.land/x/oak@v10.1.0/mod.ts";
 import Ajv, { JSONSchemaType, Schema } from "https://esm.sh/ajv@8.6.1";
+import { convertSchema, createDefaultOutput } from "./utils.ts";
 const ajv = new Ajv();
+
+// curl -X 'POST' http://localhost:8888/ -v -H 'content-type: application/json' -d @test.json
 
 interface RequestData {
     schema: Schema;
@@ -69,7 +72,19 @@ router.post("/", async context => {
         context.response.status = 400;
         context.response.body = {
             error: true,
-            message: "Error while trying to parse schema: " + e
+            message: "Error while trying to parse inputSchema: " + e
+        };
+        return;
+    }
+
+    let validateOutputSchema;
+    try {
+        validateOutputSchema = ajv.compile(convertSchema(schema));
+    } catch (e) {
+        context.response.status = 400;
+        context.response.body = {
+            error: true,
+            message: "Error while trying to create outputSchema: " + e
         };
         return;
     }
@@ -79,7 +94,7 @@ router.post("/", async context => {
         context.response.body = {
             error: true,
             message:
-                "Input does not match given schema: " +
+                "Input does not match given inputSchema: " +
                 (validateInputSchema.errors ? validateInputSchema.errors[0].message : ""),
             errorData: validateInputSchema.errors
         };
@@ -88,13 +103,17 @@ router.post("/", async context => {
 
     // eval input with given policy
 
-    const beforePolicy = `const input=JSON.parse(Deno.args[0]); let output;\n`;
-    const afterPolicy = `\nconsole.log(output);`;
+    const beforePolicy = `const input=${JSON.stringify(input)}; const output=${JSON.stringify(
+        createDefaultOutput(input)
+    )};\n`;
+    //console.log(createDefaultOutput(input), JSON.stringify(convertSchema(schema)));
+
+    const afterPolicy = `\nconsole.log(JSON.stringify(output));`;
     await Deno.writeTextFile("./policy.ts", beforePolicy + policy + afterPolicy);
 
     // create subprocess
     const evalPolicy = Deno.run({
-        cmd: ["deno", "run", "./policy.ts", JSON.stringify(input)],
+        cmd: ["deno", "run", "./policy.ts"],
         stdout: "piped",
         stderr: "piped"
     });
@@ -109,8 +128,30 @@ router.post("/", async context => {
         context.response.status = 400;
         return;
     }
-    const out = await evalPolicy.output();
-    context.response.body = new TextDecoder().decode(out);
+    let output: Record<string, unknown>;
+    try {
+        const rawOutput = new TextDecoder().decode(await evalPolicy.output());
+
+        output = JSON.parse(rawOutput);
+    } catch (e) {
+        context.response.body = { error: true, message: "Error parsing policy output: " + e };
+        context.response.status = 400;
+        return;
+    }
+
+    if (!validateOutputSchema(output)) {
+        context.response.status = 400;
+        context.response.body = {
+            error: true,
+            message:
+                "Output does not match given outputSchema: " +
+                (validateOutputSchema.errors ? validateOutputSchema.errors[0].message : ""),
+            errorData: validateOutputSchema.errors
+        };
+        return;
+    }
+
+    context.response.body = output;
     context.response.status = 200;
     return;
 });

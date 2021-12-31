@@ -1,0 +1,1 @@
+docker run -it denoland/deno:alpine eval "console.log('test')"
