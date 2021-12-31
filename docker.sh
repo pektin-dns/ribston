@@ -1,1 +1,1 @@
-docker run -it denoland/deno:alpine eval "console.log('test')"
+docker build . -t oma && docker run -p 8888:8888 oma 

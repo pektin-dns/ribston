@@ -1,5 +1,5 @@
 import { Application, Router } from "https://deno.land/x/oak@v10.1.0/mod.ts";
-import Ajv, { JSONSchemaType, Schema } from "https://esm.sh/ajv@8.6.1";
+import Ajv, { JSONSchemaType, Schema } from "https://esm.sh/ajv@8.6.1?bundle";
 import { convertSchema, createDefaultOutput } from "./utils.ts";
 const ajv = new Ajv();
 
@@ -101,25 +101,45 @@ router.post("/", async context => {
         return;
     }
 
-    // eval input with given policy
+    try {
+        // eval input with given policy
+        const beforePolicy = `delete globalThis.Deno; \n const input=${JSON.stringify(
+            input
+        )}; const output=${JSON.stringify(createDefaultOutput(input))};\n`;
+        //console.log(createDefaultOutput(input), JSON.stringify(convertSchema(schema)));
 
-    const beforePolicy = `const input=${JSON.stringify(input)}; const output=${JSON.stringify(
-        createDefaultOutput(input)
-    )};\n`;
-    //console.log(createDefaultOutput(input), JSON.stringify(convertSchema(schema)));
+        const afterPolicy = `\nconsole.log(JSON.stringify(output));`;
+        await Deno.writeTextFile("./policy.ts", beforePolicy + policy + afterPolicy);
+    } catch (e) {
+        context.response.status = 400;
+        context.response.body = {
+            error: true,
+            message: "Could not write temporary file"
+        };
+        console.error(e);
+        return;
+    }
 
-    const afterPolicy = `\nconsole.log(JSON.stringify(output));`;
-    await Deno.writeTextFile("./policy.ts", beforePolicy + policy + afterPolicy);
+    let evalPolicy, code;
+    try {
+        // create subprocess
+        evalPolicy = Deno.run({
+            cmd: ["deno", "run", "--no-check", "./policy.ts"],
+            stdout: "piped",
+            stderr: "piped"
+        });
 
-    // create subprocess
-    const evalPolicy = Deno.run({
-        cmd: ["deno", "run", "./policy.ts"],
-        stdout: "piped",
-        stderr: "piped"
-    });
-
-    // await its completion
-    const { code } = await evalPolicy.status();
+        // await its completion
+        code = (await evalPolicy.status()).code;
+    } catch (e) {
+        context.response.status = 400;
+        context.response.body = {
+            error: true,
+            message: "Could create subprocess"
+        };
+        console.error(e);
+        return;
+    }
 
     if (code !== 0) {
         const rawError = await evalPolicy.stderrOutput();
@@ -131,6 +151,7 @@ router.post("/", async context => {
     let output: Record<string, unknown>;
     try {
         const rawOutput = new TextDecoder().decode(await evalPolicy.output());
+        console.log(rawOutput);
 
         output = JSON.parse(rawOutput);
     } catch (e) {
