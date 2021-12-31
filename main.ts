@@ -151,7 +151,6 @@ router.post("/", async context => {
     let output: Record<string, unknown>;
     try {
         const rawOutput = new TextDecoder().decode(await evalPolicy.output());
-        console.log(rawOutput);
 
         output = JSON.parse(rawOutput);
     } catch (e) {
