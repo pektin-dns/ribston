@@ -62,50 +62,14 @@ router.post("/eval-policy", async context => {
         return;
     }
 
-    const { input, jtd, policy } = body as {
+    const { input, policy } = body as {
         input: Record<string, unknown>;
-        jtd: { properties: { input: Record<string, unknown>; output: Record<string, unknown> } };
         policy: string;
     };
-    let validateInputJTD;
-    try {
-        validateInputJTD = ajv.compile(jtd.properties.input);
-    } catch (e) {
-        context.response.status = 400;
-        context.response.body = {
-            error: true,
-            message: "Error while trying to parse the input jtd: " + e
-        };
-        return;
-    }
-
-    let validateOutputJTD;
-    try {
-        validateOutputJTD = ajv.compile(jtd.properties.output);
-    } catch (e) {
-        context.response.status = 400;
-        context.response.body = {
-            error: true,
-            message: "Error while trying to create the output jtd: " + e
-        };
-        return;
-    }
-
-    if (!validateInputJTD(input)) {
-        context.response.status = 400;
-        context.response.body = {
-            error: true,
-            message:
-                "Input does not match the given jtd: " +
-                (validateInputJTD.errors ? validateInputJTD.errors[0].message : ""),
-            errorData: validateInputJTD.errors
-        };
-        return;
-    }
 
     try {
         // eval input with given policy
-        const beforePolicy = `delete globalThis.Deno; \n`;
+        const beforePolicy = `//@ts-ignore x\ndelete globalThis.Deno; \n`;
         //console.log(createDefaultOutput(input), JSON.stringify(convertSchema(schema)));
 
         const afterPolicy = `\nconsole.log(JSON.stringify(output));`;
@@ -114,7 +78,7 @@ router.post("/eval-policy", async context => {
             beforePolicy +
                 policy.replace(
                     "const input: Input = {} as Input;",
-                    `const input=${JSON.stringify(input)}; `
+                    `const input: Input=${JSON.stringify(input)}; `
                 ) +
                 afterPolicy
         );
@@ -132,7 +96,7 @@ router.post("/eval-policy", async context => {
     try {
         // create subprocess
         evalPolicy = Deno.run({
-            cmd: ["deno", "run", "--no-check", "./policy.ts"],
+            cmd: ["deno", "run", "./policy.ts"],
             stdout: "piped",
             stderr: "piped"
         });
@@ -152,6 +116,7 @@ router.post("/eval-policy", async context => {
     if (code !== 0) {
         const rawError = await evalPolicy.stderrOutput();
         const errorString = new TextDecoder().decode(rawError);
+        console.error(errorString);
         context.response.body = { error: true, message: "Error evaluating policy:" + errorString };
         context.response.status = 400;
         return;
@@ -165,18 +130,6 @@ router.post("/eval-policy", async context => {
     } catch (e) {
         context.response.body = { error: true, message: "Error parsing policy output: " + e };
         context.response.status = 400;
-        return;
-    }
-
-    if (!validateOutputJTD(output)) {
-        context.response.status = 400;
-        context.response.body = {
-            error: true,
-            message:
-                "Output does not match given jtd: " +
-                (validateOutputJTD.errors ? validateOutputJTD.errors[0].message : ""),
-            errorData: validateOutputJTD.errors
-        };
         return;
     }
 
