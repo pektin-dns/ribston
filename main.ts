@@ -1,30 +1,28 @@
 import { Application, Router } from "https://deno.land/x/oak@v10.1.0/mod.ts";
-import Ajv, { JSONSchemaType, Schema } from "https://esm.sh/ajv@8.6.1?bundle";
-import { convertSchema, createDefaultOutput } from "./utils.ts";
+import Ajv from "https://esm.sh/ajv@8.6.1/dist/jtd?bundle";
+
 const ajv = new Ajv();
 
-// curl -X 'POST' http://localhost:8888/ -v -H 'content-type: application/json' -d @test.json
-
-interface RequestData {
-    schema: Schema;
-    policy: string;
-    input: Record<string, unknown>;
-}
-
-const requestSchema: JSONSchemaType<RequestData> = {
-    type: "object",
+const requestSchema = {
     properties: {
-        schema: { type: "object" },
         policy: { type: "string" },
-        input: { type: "object" }
-    },
-    required: ["schema", "policy", "input"],
-    additionalProperties: false
+        input: { properties: {}, additionalProperties: true }
+    }
 };
 const validateRequestSchema = ajv.compile(requestSchema);
 
 const router = new Router();
-router.post("/", async context => {
+
+router.post("/health", context => {
+    context.response.headers.set("content-type", "application/json");
+    context.response.body = { error: false };
+    context.response.status = 200;
+    return;
+});
+
+router.post("/eval-policy", async context => {
+    //console.log(JSON.stringify(await context.request.body({ type: "json" }).value, null, "   "));
+
     context.response.headers.set("content-type", "application/json");
 
     if (context.request.headers.get("content-type") !== "application/json") {
@@ -64,52 +62,62 @@ router.post("/", async context => {
         return;
     }
 
-    const { input, schema, policy } = body;
-    let validateInputSchema;
+    const { input, jtd, policy } = body as {
+        input: Record<string, unknown>;
+        jtd: { properties: { input: Record<string, unknown>; output: Record<string, unknown> } };
+        policy: string;
+    };
+    let validateInputJTD;
     try {
-        validateInputSchema = ajv.compile(schema);
+        validateInputJTD = ajv.compile(jtd.properties.input);
     } catch (e) {
         context.response.status = 400;
         context.response.body = {
             error: true,
-            message: "Error while trying to parse inputSchema: " + e
+            message: "Error while trying to parse the input jtd: " + e
         };
         return;
     }
 
-    let validateOutputSchema;
+    let validateOutputJTD;
     try {
-        validateOutputSchema = ajv.compile(convertSchema(schema));
+        validateOutputJTD = ajv.compile(jtd.properties.output);
     } catch (e) {
         context.response.status = 400;
         context.response.body = {
             error: true,
-            message: "Error while trying to create outputSchema: " + e
+            message: "Error while trying to create the output jtd: " + e
         };
         return;
     }
 
-    if (!validateInputSchema(input)) {
+    if (!validateInputJTD(input)) {
         context.response.status = 400;
         context.response.body = {
             error: true,
             message:
-                "Input does not match given inputSchema: " +
-                (validateInputSchema.errors ? validateInputSchema.errors[0].message : ""),
-            errorData: validateInputSchema.errors
+                "Input does not match the given jtd: " +
+                (validateInputJTD.errors ? validateInputJTD.errors[0].message : ""),
+            errorData: validateInputJTD.errors
         };
         return;
     }
 
     try {
         // eval input with given policy
-        const beforePolicy = `delete globalThis.Deno; \n const input=${JSON.stringify(
-            input
-        )}; const output=${JSON.stringify(createDefaultOutput(input))};\n`;
+        const beforePolicy = `delete globalThis.Deno; \n`;
         //console.log(createDefaultOutput(input), JSON.stringify(convertSchema(schema)));
 
         const afterPolicy = `\nconsole.log(JSON.stringify(output));`;
-        await Deno.writeTextFile("./policy.ts", beforePolicy + policy + afterPolicy);
+        await Deno.writeTextFile(
+            "./policy.ts",
+            beforePolicy +
+                policy.replace(
+                    "const input: Input = {} as Input;",
+                    `const input=${JSON.stringify(input)}; `
+                ) +
+                afterPolicy
+        );
     } catch (e) {
         context.response.status = 400;
         context.response.body = {
@@ -135,7 +143,7 @@ router.post("/", async context => {
         context.response.status = 400;
         context.response.body = {
             error: true,
-            message: "Could create subprocess"
+            message: "Couldn't create subprocess"
         };
         console.error(e);
         return;
@@ -148,6 +156,7 @@ router.post("/", async context => {
         context.response.status = 400;
         return;
     }
+
     let output: Record<string, unknown>;
     try {
         const rawOutput = new TextDecoder().decode(await evalPolicy.output());
@@ -159,14 +168,14 @@ router.post("/", async context => {
         return;
     }
 
-    if (!validateOutputSchema(output)) {
+    if (!validateOutputJTD(output)) {
         context.response.status = 400;
         context.response.body = {
             error: true,
             message:
-                "Output does not match given outputSchema: " +
-                (validateOutputSchema.errors ? validateOutputSchema.errors[0].message : ""),
-            errorData: validateOutputSchema.errors
+                "Output does not match given jtd: " +
+                (validateOutputJTD.errors ? validateOutputJTD.errors[0].message : ""),
+            errorData: validateOutputJTD.errors
         };
         return;
     }

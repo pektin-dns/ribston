@@ -1,8 +1,5 @@
 {
-    "schema": {
-        "type": "object",
-        "required": ["api_method", "ip", "utc_millis", "user_agent", "rr_sets"],
-        "additionalProperties": false,
+    "jtd": {
         "properties": {
             "api_method": { "type": "string" },
             "ip": { "type": "string" },

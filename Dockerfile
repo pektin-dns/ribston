@@ -1,5 +1,5 @@
 FROM denoland/deno:alpine
-WORKDIR /oma/
+WORKDIR /cepp/
 # create the temp policy file
 RUN touch policy.ts; chown deno:deno policy.ts
 USER deno
