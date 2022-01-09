@@ -74,11 +74,11 @@ router.post("/eval", async context => {
 
         const afterPolicy = `\nconsole.log(JSON.stringify(output));`;
         await Deno.writeTextFile(
-            "./policy.ts",
+            "./policy.js",
             beforePolicy +
                 policy.replace(
-                    "const input: Input = {} as Input;",
-                    `const input: Input=${JSON.stringify(input)}; `
+                    "const input = {};",
+                    ` const output={}; const input = ${JSON.stringify(input)};`
                 ) +
                 afterPolicy
         );
