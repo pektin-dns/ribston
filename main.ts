@@ -1,5 +1,5 @@
-import { Application, Router } from "https://deno.land/x/oak@v10.1.0/mod.ts";
-import Ajv from "https://esm.sh/ajv@8.6.1/dist/jtd?bundle";
+import { Application, Router } from "./deps.ts";
+import { Ajv } from "./deps.ts";
 
 const ajv = new Ajv();
 
@@ -20,7 +20,7 @@ router.post("/health", context => {
     return;
 });
 
-router.post("/eval-policy", async context => {
+router.post("/eval", async context => {
     //console.log(JSON.stringify(await context.request.body({ type: "json" }).value, null, "   "));
 
     context.response.headers.set("content-type", "application/json");
@@ -96,7 +96,7 @@ router.post("/eval-policy", async context => {
     try {
         // create subprocess
         evalPolicy = Deno.run({
-            cmd: ["deno", "run", "./policy.ts"],
+            cmd: ["deno", "run", "./policy.js"],
             stdout: "piped",
             stderr: "piped"
         });
