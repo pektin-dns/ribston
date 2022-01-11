@@ -7,4 +7,3 @@ variables:
 
 stages:
     - mirror
-    - docker-build-and-publish
