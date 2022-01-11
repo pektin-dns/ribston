@@ -4,7 +4,7 @@ include:
       file:
           - scripts/mirror.yml
 
-image: alpine:latest
+image: alpine
 
 variables:
     IMAGE_NAME: ribston
