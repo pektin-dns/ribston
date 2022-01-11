@@ -1,8 +1,12 @@
 include:
     - remote: https://git.y.gy/pektin/pektin-dist/-/raw/main/scripts/mirror.yml
     - remote: https://git.y.gy/pektin/pektin-dist/-/raw/main/scripts/docker-build-and-publish.yml
+
+image: alpine:latest
+
+variables:
+    IMAGE_NAME: ribston
+
 stages:
     - mirror
     - docker-build-and-publish
-variables:
-    IMAGE_NAME: ribston
