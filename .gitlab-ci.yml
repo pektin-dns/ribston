@@ -1,6 +1,6 @@
 include:
-    - remote: https://git.y.gy/pektin/pektin-dist/-/raw/main/scripts/mirror.yml
-    - remote: https://git.y.gy/pektin/pektin-dist/-/raw/main/scripts/docker-build-and-publish.yml
+    - remote: "https://git.y.gy/pektin/pektin-dist/-/raw/main/scripts/mirror.yml"
+    - remote: "https://git.y.gy/pektin/pektin-dist/-/raw/main/scripts/docker-build-and-publish.yml"
 
 image: alpine:latest
 
