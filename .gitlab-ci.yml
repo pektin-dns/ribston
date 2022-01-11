@@ -1,4 +1,8 @@
-include: https://git.y.gy/pektin/pektin-dist/-/raw/main/scripts/mirror.yml
+include:
+    - project: pektin/pektin-dist
+      ref: main
+      file:
+          - scripts/mirror.yml
 
 image: alpine:latest
 
