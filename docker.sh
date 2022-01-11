@@ -1,1 +1,1 @@
-docker build . -t oma && docker run -p 8888:8888 oma 
+docker build . -t ribston && docker run -p 8888:8888 ribston 

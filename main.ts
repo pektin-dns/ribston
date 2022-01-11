@@ -69,24 +69,21 @@ router.post("/eval", async context => {
 
     try {
         // eval input with given policy
-        const beforePolicy = `//@ts-ignore x\ndelete globalThis.Deno; \n`;
+        const beforePolicy = `//@ts-ignore x\ndelete globalThis.Deno;\n`;
         //console.log(createDefaultOutput(input), JSON.stringify(convertSchema(schema)));
 
         const afterPolicy = `\nconsole.log(JSON.stringify(output));`;
         await Deno.writeTextFile(
-            "./policy.js",
+            `./policy.js`,
             beforePolicy +
-                policy.replace(
-                    "const input = {};",
-                    ` const output={}; const input = ${JSON.stringify(input)};`
-                ) +
+                policy.replace(`const input = {};`, `const input = ${JSON.stringify(input)};`) +
                 afterPolicy
         );
     } catch (e) {
         context.response.status = 400;
         context.response.body = {
             error: true,
-            message: "Could not write temporary file"
+            message: `Could not write temporary file`
         };
         console.error(e);
         return;
