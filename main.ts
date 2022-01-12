@@ -141,4 +141,4 @@ app.use(router.allowedMethods());
 
 console.log("Server started");
 
-await app.listen({ port: 8888 });
+await app.listen({ port: 80 });
