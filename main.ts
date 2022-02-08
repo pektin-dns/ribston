@@ -2,9 +2,6 @@ import { Application, Router, Ajv } from "./deps.ts";
 import { Evaluator } from "./evaluator/Evaluator.ts";
 const ajv = new Ajv();
 
-const e = new Evaluator({ id: "test", type: "process" });
-e.create();
-
 const requestSchema = {
     properties: {
         policy: { type: `string` },
@@ -38,7 +35,8 @@ router.post(`/health`, context => {
 
 router.post(`/eval`, async context => {
     context.response.headers.set(`content-type`, `application/json`);
-
+    const e = new Evaluator({ id: "test", type: "process" });
+    e.create();
     if (context.request.headers.get(`content-type`) !== `application/json`) {
         context.response.status = 400;
         context.response.body = {
@@ -83,7 +81,7 @@ router.post(`/eval`, async context => {
 
     try {
         const answer = await e.callEval(input, policy);
-        console.log(answer);
+        //console.log(answer);
 
         context.response.body = answer ? answer : { error: true, message: "Error" };
         context.response.status = 200;

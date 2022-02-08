@@ -16,17 +16,17 @@ export class Evaluator {
     }
     create = async () => {
         if (this.type === "worker") {
-            this.worker = new Worker(new URL("./Worker.ts", import.meta.url).href, {
+            this.worker = new Worker(new URL("./Worker.js", import.meta.url).href, {
                 type: "module"
             });
         } else {
             this.process = Deno.run({
-                cmd: [`deno`, `run`, `./evaluator/Process.ts`],
+                cmd: [`deno`, `run`, `./evaluator/Process.js`],
                 stdout: `piped`,
                 stderr: `piped`,
                 stdin: "piped"
             });
-            console.log(await this.process.status());
+            await this.process.status();
         }
     };
     callEval = async (input: string, policy: string): Promise<string | false> => {
@@ -62,64 +62,7 @@ export class Evaluator {
         } else {
             if (!this.process) return false;
 
-            this.process.kill("SIGTERM");
-            this.process.close();
             this.process = null;
         }
     };
 }
-
-const policy = `
-const input="test"
-var ApiResponseType;
-(function(ApiResponseType1) {
-ApiResponseType1["Success"] = "success";
-ApiResponseType1["PartialSuccess"] = "partial-success";
-ApiResponseType1["Error"] = "error";
-ApiResponseType1["Ignored"] = "ignored";
-})(ApiResponseType || (ApiResponseType = {
-}));
-var PektinRRType;
-(function(PektinRRType1) {
-PektinRRType1["A"] = "A";
-PektinRRType1["AAAA"] = "AAAA";
-PektinRRType1["CAA"] = "CAA";
-PektinRRType1["CNAME"] = "CNAME";
-PektinRRType1["MX"] = "MX";
-PektinRRType1["NS"] = "NS";
-PektinRRType1["OPENPGPKEY"] = "OPENPGPKEY";
-PektinRRType1["SOA"] = "SOA";
-PektinRRType1["SRV"] = "SRV";
-PektinRRType1["TLSA"] = "TLSA";
-PektinRRType1["TXT"] = "TXT";
-})(PektinRRType || (PektinRRType = {
-}));
-
-const output = {
-};
-const err = (msg)=>{
-output.error = true;
-output.message = msg;
-};
-if (input.api_method === "get") {
-if (!input.request_body.Get.keys.every((key)=>key.startsWith("_acme-challenge") && key.endsWith(".:TXT")
-)) {
-    err("Invalid key");
-}
-} else if (input.api_method === "delete" || input.api_method === "set") {
-const records = input.api_method === "delete" ? input.request_body.Delete.records : input.request_body.Set.records;
-if (!records.every((record)=>record.name.startsWith("_acme-challenge") && record.rr_type === PektinRRType.TXT
-)) {
-    err("Invalid key");
-}
-} else {
-err(\`API method \${input.api_method} is not allowed\`);
-}
-if (output.error === undefined) {
-output.error = false;
-output.message = "Success";
-}
-
-output;
-
-`;

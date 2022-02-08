@@ -5,7 +5,7 @@ const te = new TextEncoder();
 const main = () => {
     const buf = new Uint8Array(10240);
 
-    const n = Deno.stdin.readSync(buf) as number;
+    const n = Deno.stdin.readSync(buf);
     const m = td.decode(buf.subarray(0, n));
 
     const command = JSON.parse(m);

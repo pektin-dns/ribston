@@ -1,1 +1,1 @@
-deno run --allow-read --allow-net test/${1}.ts
+deno run --allow-read --allow-net --allow-hrtime test/${1}.ts
