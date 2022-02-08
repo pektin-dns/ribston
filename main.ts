@@ -1,5 +1,9 @@
-import { Application, Router, Ajv, path } from "./deps.ts";
+import { Application, Router, Ajv } from "./deps.ts";
+import { Evaluator } from "./evaluator/Evaluator.ts";
 const ajv = new Ajv();
+
+const e = new Evaluator({ id: "test", type: "process" });
+e.create();
 
 const requestSchema = {
     properties: {
@@ -73,87 +77,22 @@ router.post(`/eval`, async context => {
     }
 
     const { input, policy } = body as {
-        input: Record<string, unknown>;
+        input: string;
         policy: string;
     };
-    const id = randomString(20);
-    const basePath = path.join(`work`);
-    const policyFileName = `${id}-policy.js`;
-    const inputFileName = `${id}-input.json`;
-    const policyPath = path.join(basePath, policyFileName);
-    const inputPath = path.join(basePath, inputFileName);
 
     try {
-        // eval input with given policy
-        const beforePolicy = `//@ts-ignore x\nconst input=JSON.parse(await Deno.readTextFile("./work/${inputFileName}"))\ndelete globalThis.Deno;\n`;
+        const answer = await e.callEval(input, policy);
+        console.log(answer);
 
-        const afterPolicy = `\nconsole.log(JSON.stringify(output));`;
-
-        await Deno.writeTextFile(
-            policyPath,
-            beforePolicy + policy.replace(/^const input [^;]*;$/gm, "") + afterPolicy
-        );
-        await Deno.writeTextFile(inputPath, JSON.stringify(input));
-    } catch (e) {
+        context.response.body = answer ? answer : { error: true, message: "Error" };
+        context.response.status = 200;
+    } catch (error) {
+        context.response.body = { error: true, message: error };
         context.response.status = 400;
-        context.response.body = {
-            error: true,
-            message: `Could not write temporary files`
-        };
-        console.error(e);
-        return;
     }
+    e.destroy();
 
-    let evalPolicy, code;
-    try {
-        // create subprocess
-        evalPolicy = Deno.run({
-            cmd: [
-                `deno`,
-                `run`,
-                `--allow-read=./work/${inputFileName}`,
-                `./work/${policyFileName}`
-            ],
-            stdout: `piped`,
-            stderr: `piped`
-        });
-
-        // await its completion
-        code = (await evalPolicy.status()).code;
-        await removeFiles(policyPath, inputPath);
-    } catch (e) {
-        await removeFiles(policyPath, inputPath);
-        context.response.status = 400;
-        context.response.body = {
-            error: true,
-            message: `Couldn't create subprocess`
-        };
-        console.error(e);
-        return;
-    }
-
-    if (code !== 0) {
-        const rawError = await evalPolicy.stderrOutput();
-        const errorString = new TextDecoder().decode(rawError);
-        console.error(errorString);
-        context.response.body = { error: true, message: `Error evaluating policy:` + errorString };
-        context.response.status = 400;
-        return;
-    }
-
-    let output: Record<string, unknown>;
-    try {
-        const rawOutput = new TextDecoder().decode(await evalPolicy.output());
-
-        output = JSON.parse(rawOutput);
-    } catch (e) {
-        context.response.body = { error: true, message: `Error parsing policy output: ` + e };
-        context.response.status = 400;
-        return;
-    }
-
-    context.response.body = output;
-    context.response.status = 200;
     return;
 });
 

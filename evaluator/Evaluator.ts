@@ -1,17 +1,18 @@
 const te = new TextEncoder();
 const td = new TextDecoder();
-const buf = new Uint8Array(10240);
 
-class Evaluator {
+export class Evaluator {
     id: string;
     worker: Worker | null;
     process: Deno.Process | null;
     type: "worker" | "process";
+    buf: Uint8Array;
     constructor({ id, type }: { id: string; type: "worker" | "process" }) {
         this.id = id;
         this.worker = null;
         this.process = null;
         this.type = type;
+        this.buf = new Uint8Array(10240);
     }
     create = async () => {
         if (this.type === "worker") {
@@ -20,7 +21,7 @@ class Evaluator {
             });
         } else {
             this.process = Deno.run({
-                cmd: [`deno`, `run`, `--allow-hrtime`, `./Process.ts`],
+                cmd: [`deno`, `run`, `./evaluator/Process.ts`],
                 stdout: `piped`,
                 stderr: `piped`,
                 stdin: "piped"
@@ -28,9 +29,10 @@ class Evaluator {
             console.log(await this.process.status());
         }
     };
-    callEval = async (input: string, policy: string) => {
+    callEval = async (input: string, policy: string): Promise<string | false> => {
         if (this.type === "worker") {
-            if (!this.worker) return;
+            if (!this.worker) this.create();
+            if (!this.worker) return false;
 
             this.worker.postMessage({ input, policy });
             return new Promise(resolve => {
@@ -40,20 +42,29 @@ class Evaluator {
                 };
             });
         } else {
-            this.process?.stdin?.write(te.encode(`${JSON.stringify({ input, policy })}\n`));
+            if (!this.process) this.create();
 
-            const n = (await this.process?.stdout?.read(buf)) as number;
-            const out = td.decode(buf.subarray(0, n));
+            if (!this.process || !this.process.stdin || !this.process.stdout) return false;
+            this.process.stdin.write(te.encode(`${JSON.stringify({ input, policy })}\n`));
 
+            const n = (await this.process.stdout.read(this.buf)) as number;
+            const out = td.decode(this.buf.subarray(0, n));
+            if (out === undefined || out === "undefined\n") return false;
             return JSON.parse(out);
         }
     };
 
     destroy = () => {
         if (this.type === "worker") {
-            if (!this.worker) return;
+            if (!this.worker) return false;
             this.worker.terminate();
+            this.worker = null;
         } else {
+            if (!this.process) return false;
+
+            this.process.kill("SIGTERM");
+            this.process.close();
+            this.process = null;
         }
     };
 }
@@ -112,16 +123,3 @@ output.message = "Success";
 output;
 
 `;
-
-const e = new Evaluator({ id: "test", type: "process" });
-e.create();
-await new Promise(resolve => setTimeout(resolve, 500));
-
-const t = () => performance.now();
-const t2 = t();
-
-console.log(await e.callEval(`{ "test": "test" }`, policy));
-
-const t3 = t();
-console.log(t3 - t2);
-e.destroy();

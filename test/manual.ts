@@ -1,7 +1,7 @@
 const policy = await Deno.readTextFile(
     `/home/paul/Documents/pektin/pektin-js-client/dist/policies/acme.ribston.js`
 );
-const input = "test";
+const input = `{"test":"test"}`;
 
 const reqs = [];
 
