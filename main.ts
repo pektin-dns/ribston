@@ -1,5 +1,4 @@
 import { Application, Router, Ajv, path } from "./deps.ts";
-import { testEval } from "./test-eval.ts";
 const ajv = new Ajv();
 
 const requestSchema = {
@@ -61,10 +60,6 @@ router.post(`/eval`, async context => {
         return;
     }
 
-    testEval(body.policy);
-    context.response.status = 400;
-    context.response.body = {};
-    if ("a" === "a") return;
     if (!validateRequestSchema(body)) {
         context.response.status = 400;
         context.response.body = {
@@ -81,7 +76,7 @@ router.post(`/eval`, async context => {
         input: Record<string, unknown>;
         policy: string;
     };
-    const id = await randomString(20);
+    const id = randomString(20);
     const basePath = path.join(`work`);
     const policyFileName = `${id}-policy.js`;
     const inputFileName = `${id}-input.json`;
