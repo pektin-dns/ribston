@@ -1,7 +1,7 @@
 FROM denoland/deno:alpine
 WORKDIR /ribston/
 # create the temp policy file
-RUN mkdir work; chown deno:deno work; mkdir watch; chown deno:deno watch
+RUN mkdir work watch; chown deno:deno work watch;
 USER deno
 # Cache deps
 COPY deps.ts .

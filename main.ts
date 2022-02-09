@@ -18,6 +18,8 @@ const workers = 2;
 
 const switchLimit = 2;
 
+const maxCCR = 500;
+
 const evalPool: Evaluator[] = [];
 for (let i = 0; i < min; i++) {
     const newEval = new Evaluator({ id: i.toString(), type: i < workers ? "worker" : "process" });
@@ -25,7 +27,8 @@ for (let i = 0; i < min; i++) {
     evalPool.push(newEval);
 }
 
-export const getEvaluator = async (evalPool: Evaluator[]): Promise<Evaluator> => {
+export const getEvaluator = async (evalPool: Evaluator[]): Promise<Evaluator | false> => {
+    if (ccr > maxCCR) return false;
     for (let i = ccr > switchLimit ? workers : 0; i < evalPool.length; i++) {
         const evaluator = evalPool[i];
         if (evaluator.ready) {

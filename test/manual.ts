@@ -4,7 +4,7 @@ const policy = await Deno.readTextFile(
 const input = `{"api_method":"get"}`;
 
 const reqs = [];
-const parallel = 3;
+const parallel = 1000;
 for (let i = 0; i < parallel; i++) {
     reqs.push(
         fetch(`http://[::]:8888/eval`, {
@@ -17,5 +17,5 @@ for (let i = 0; i < parallel; i++) {
 const t1 = performance.now();
 const res = await Promise.all(reqs);
 const t2 = performance.now();
-const j = await Promise.all(res.map(r => r.text()));
-console.log(j, t2 - t1);
+const j = await Promise.all(res.map(r => r.json()));
+console.log(JSON.stringify(j, null, "    "), t2 - t1);
