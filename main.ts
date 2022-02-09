@@ -12,16 +12,13 @@ const validateRequestSchema = ajv.compile(requestSchema);
 
 const router = new Router();
 
-const min = 500;
-
+const evaluators = 500;
 const workers = 2;
-
 const switchLimit = 2;
-
 const maxCCR = 500;
 
 const evalPool: Evaluator[] = [];
-for (let i = 0; i < min; i++) {
+for (let i = 0; i < evaluators; i++) {
     const newEval = new Evaluator({ id: i.toString(), type: i < workers ? "worker" : "process" });
     await newEval.createFirst();
     evalPool.push(newEval);
