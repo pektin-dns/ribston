@@ -5,7 +5,7 @@ const input = `{"test":"test"}`;
 
 const reqs = [];
 
-for (let i = 0; i < 100; i++) {
+for (let i = 0; i < 20; i++) {
     reqs.push(
         fetch(`http://[::]:8888/eval`, {
             method: "post",
@@ -17,5 +17,5 @@ for (let i = 0; i < 100; i++) {
 const t1 = performance.now();
 const res = await Promise.all(reqs);
 const t2 = performance.now();
-const j = await Promise.all(res.map(r => r.json()));
+const j = await Promise.all(res.map(r => r.text()));
 console.log(j, t2 - t1);

@@ -1,18 +1,12 @@
-import { writeAllSync } from "../deps.ts";
-const td = new TextDecoder();
-const te = new TextEncoder();
-
-const main = () => {
-    const buf = new Uint8Array(10240);
-
-    const n = Deno.stdin.readSync(buf);
-    const m = td.decode(buf.subarray(0, n));
-
-    const command = JSON.parse(m);
-    const { input, policy } = command;
+const id = Deno.args[0];
+const watcher = Deno.watchFs(`./watch/${id}/`);
+for await (const event of watcher) {
+    const rawFile = await Deno.readTextFile(`./work/${id}/policy.json`);
+    const { input, policy } = JSON.parse(rawFile);
+    //@ts-ignore x
+    delete globalThis.Deno;
 
     const e = eval(policy);
-    writeAllSync(Deno.stdout, te.encode(`${JSON.stringify(e)}\n`));
-    Deno.exit();
-};
-window.onload = () => main();
+    console.log(JSON.stringify(e));
+    break;
+}
