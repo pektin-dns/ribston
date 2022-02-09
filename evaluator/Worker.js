@@ -1,6 +1,16 @@
 self.onmessage = e => {
-    const input = JSON.parse(e.data.input);
-    const b = eval(e.data.policy);
+    let input;
+    try {
+        input = JSON.parse(e.data.input);
+    } catch (error) {
+        return self.postMessage({ error: true, message: "Failed to parse Input" });
+    }
+    let evalOutput;
+    try {
+        evalOutput = eval(e.data.policy);
+    } catch (error) {
+        return self.postMessage({ error: true, message: error.message });
+    }
 
-    self.postMessage(b);
+    return self.postMessage(evalOutput);
 };

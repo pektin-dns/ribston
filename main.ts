@@ -12,36 +12,43 @@ const validateRequestSchema = ajv.compile(requestSchema);
 
 const router = new Router();
 
-const min = 10;
-const max = 100;
+const min = 500;
+
+const workers = 2;
+
+const switchLimit = 2;
 
 const evalPool: Evaluator[] = [];
-
 for (let i = 0; i < min; i++) {
-    const newEval = new Evaluator({ id: i.toString(), type: "process" });
+    const newEval = new Evaluator({ id: i.toString(), type: i < workers ? "worker" : "process" });
     await newEval.createFirst();
     evalPool.push(newEval);
 }
 
-export const getEvaluator = async (evalPool: Evaluator[]) => {
-    for (let i = 0; i < evalPool.length; i++) {
+export const getEvaluator = async (evalPool: Evaluator[]): Promise<Evaluator> => {
+    for (let i = ccr > switchLimit ? workers : 0; i < evalPool.length; i++) {
         const evaluator = evalPool[i];
         if (evaluator.ready) {
             evaluator.ready = false;
-            console.log(`selected evaluator ${i}`);
+            console.log(`selected evaluator ${i} ${evaluator.type}`);
 
             return evaluator;
         }
     }
-    if (evalPool.length < max) {
-        const newEval = new Evaluator({ id: evalPool.length.toString(), type: "process" });
+    /*
+    if (evalCount < max) {
+        const id = evalCount;
+        evalCount++;
+        const newEval = new Evaluator({ id: id.toString(), type: evaluatorType });
         await newEval.createFirst();
         evalPool.push(newEval);
-        console.log(`creating new evaluator ${evalPool.length}`);
+        console.log(`creating new evaluator ${id}`);
         await new Promise(resolve => setTimeout(resolve, 100));
-
+        newEval.ready = false;
         return newEval;
-    }
+    }*/
+    await new Promise(resolve => setTimeout(resolve, 100));
+    return getEvaluator(evalPool);
 };
 
 export const randomString = (length = 100) => {
@@ -60,25 +67,31 @@ export const removeFiles = async (policyPath: string, inputPath: string) => {
 
 router.post(`/health`, context => {
     context.response.headers.set(`content-type`, `application/json`);
-    context.response.body = { error: false };
+    context.response.body = { status: "SUCCESS" };
     context.response.status = 200;
     return;
 });
-
+let ccr = 0;
 router.post(`/eval`, async context => {
+    ccr++;
     context.response.headers.set(`content-type`, `application/json`);
 
     if (context.request.headers.get(`content-type`) !== `application/json`) {
         context.response.status = 400;
         context.response.body = {
-            error: true,
+            status: "INVALID_CONTENT_TYPE",
             message: `Invalid content type header: 'content-type: application/json' is required`
         };
+        ccr--;
         return;
     }
     if (!context.request.hasBody) {
         context.response.status = 400;
-        context.response.body = { error: true, message: `Body required` };
+        context.response.body = {
+            message: `Body required`,
+            status: "BODY_REQUIRED"
+        };
+        ccr--;
         return;
     }
     let body;
@@ -87,21 +100,23 @@ router.post(`/eval`, async context => {
     } catch (e) {
         context.response.status = 400;
         context.response.body = {
-            error: true,
+            status: "BODY_NOT_PARSEABLE",
             message: `Error while trying to parse body: ` + e
         };
+        ccr--;
         return;
     }
 
     if (!validateRequestSchema(body)) {
         context.response.status = 400;
         context.response.body = {
-            error: true,
+            status: "INVALID_BODY_SCHEMA",
             message:
-                `Invalid request body: ` +
+                `Invalid request body schema: ` +
                 (validateRequestSchema.errors ? validateRequestSchema.errors[0].message : ``),
-            errorData: validateRequestSchema.errors
+            data: validateRequestSchema.errors
         };
+        ccr--;
         return;
     }
 
@@ -110,26 +125,41 @@ router.post(`/eval`, async context => {
         policy: string;
     };
     const evaluator = await getEvaluator(evalPool);
-    console.log("got eval");
 
     try {
         if (!evaluator) {
-            context.response.body = { error: true, message: "No evaluator available" };
+            context.response.body = {
+                message: "No evaluator available",
+                status: "NO_EVALUATOR_AVAILABLE"
+            };
             context.response.status = 200;
+            ccr--;
             return;
         }
 
         const answer = await evaluator.callEval(input, policy);
-        evaluator.destroy();
+
         context.response.body = answer
-            ? answer.replaceAll("\n", "")
-            : { error: true, message: "Couldnt parse answer from evaluator" };
+            ? {
+                  message: "Success",
+                  status: "SUCCESS",
+                  data: JSON.parse(answer)
+              }
+            : {
+                  message: "Invalid answer from evaluator",
+                  status: "INVALID_EVALUATOR_ANSWER"
+              };
         context.response.status = 200;
     } catch (error) {
-        context.response.body = { error: true, message: error };
+        console.error(error);
+
+        context.response.body = {
+            message: error.message,
+            status: "FAILED_TO_EVALUATE"
+        };
         context.response.status = 400;
     }
-
+    ccr--;
     return;
 });
 

@@ -1,5 +1,3 @@
-const te = new TextEncoder();
-const td = new TextDecoder();
 import { path } from "../deps.ts";
 
 export class Evaluator {
@@ -28,7 +26,7 @@ export class Evaluator {
             this.worker = new Worker(new URL("./Worker.js", import.meta.url).href, {
                 type: "module"
             });
-            setTimeout(() => (this.ready = true), 1000);
+            setTimeout(() => (this.ready = true), 100);
         } else {
             this.process = Deno.run({
                 cmd: [
@@ -46,37 +44,35 @@ export class Evaluator {
         }
     };
     callEval = async (input: string, policy: string): Promise<string | false> => {
-        this.ready = false;
         if (this.type === "worker") {
-            if (!this.worker) this.create();
-            if (!this.worker) return false;
+            if (!this.worker) throw Error("Worker does not exist");
 
             this.worker.postMessage({ input, policy });
             return new Promise(resolve => {
-                if (!this.worker) return;
+                if (!this.worker) throw Error("Worker does not exist");
+
                 this.worker.onmessage = e => {
-                    resolve(e.data);
+                    this.destroy();
+                    resolve(JSON.stringify(e.data));
                 };
             });
         } else {
-            if (!this.process) return false;
+            if (!this.process) throw Error("Process does not exist");
+            const td = new TextDecoder();
 
             await Deno.writeTextFile(
                 path.join("work", this.id, "policy.json"),
                 JSON.stringify({ input, policy })
             );
-            Deno.writeTextFile(path.join("work", this.id, "watch"), Date.now().toString());
-            Deno.writeTextFile(path.join("work", this.id, "watch"), Date.now().toString());
+            Deno.writeTextFile(path.join("watch", this.id, "watch"), Date.now().toString());
 
-            const { code } = await this.process.status();
+            await this.process.status();
             const rawOutput = await this.process.output();
-            const rawError = await this.process.stderrOutput();
+            //const rawError = await this.process.stderrOutput();
 
-            if (code === 0) {
-                return td.decode(rawOutput);
-            } else {
-                return td.decode(rawError);
-            }
+            this.destroy();
+
+            return td.decode(rawOutput).replaceAll("\n", "");
         }
     };
 
@@ -85,6 +81,7 @@ export class Evaluator {
             if (!this.worker) return false;
             this.worker.terminate();
             this.worker = null;
+            this.create();
         } else {
             if (!this.process) return false;
             try {

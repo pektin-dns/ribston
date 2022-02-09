@@ -17,6 +17,8 @@ The problem of running TS policies in Deno is that the execution time is approxi
 JS: 30ms
 TS: 300ms
 
+Workers have approximately half the CPU usage of processes
+
 # Testing
 
 run ribston in docker

@@ -2,11 +2,27 @@ const id = Deno.args[0];
 const watcher = Deno.watchFs(`./watch/${id}/`);
 for await (const event of watcher) {
     const rawFile = await Deno.readTextFile(`./work/${id}/policy.json`);
-    const { input, policy } = JSON.parse(rawFile);
+
+    let input, policy;
+    try {
+        const r = JSON.parse(rawFile);
+        input = JSON.parse(r.input);
+        policy = r.policy;
+    } catch (error) {
+        console.log(JSON.stringify({ error: true, message: "Failed to parse Input" }));
+        break;
+    }
+
     //@ts-ignore x
     delete globalThis.Deno;
+    let evalOutput;
+    try {
+        evalOutput = eval(policy);
+    } catch (error) {
+        console.log(JSON.stringify({ error: true, message: error.message }));
+        break;
+    }
 
-    const e = eval(policy);
-    console.log(JSON.stringify(e));
+    console.log(JSON.stringify(evalOutput));
     break;
 }

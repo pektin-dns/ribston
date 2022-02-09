@@ -1,11 +1,11 @@
 const policy = await Deno.readTextFile(
     `/home/paul/Documents/pektin/pektin-js-client/dist/policies/acme.ribston.js`
 );
-const input = `{"test":"test"}`;
+const input = `{"api_method":"get"}`;
 
 const reqs = [];
-
-for (let i = 0; i < 20; i++) {
+const parallel = 3;
+for (let i = 0; i < parallel; i++) {
     reqs.push(
         fetch(`http://[::]:8888/eval`, {
             method: "post",
