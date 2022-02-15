@@ -10,4 +10,4 @@ RUN deno cache deps.ts
 ADD ./ ./
 # compile main.ts
 RUN deno cache main.ts
-CMD ["run" ,"--allow-net", "--allow-run" ,"--allow-write=./work/,./watch/","--allow-read=./evaluator/Worker.js,./work/,./watch/", "main.ts"]
+CMD ["deno","run" ,"--allow-net", "--allow-run" ,"--allow-write=./work/,./watch/","--allow-read=./evaluator/Worker.js,./work/,./watch/", "main.ts"]

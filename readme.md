@@ -1,3 +1,5 @@
+TODO: smaller build size with compilation to executable?
+
 # Ribston
 
 This project is inspired by the awesome concept of Open Policy Agent (OPA)
