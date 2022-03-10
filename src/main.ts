@@ -1,5 +1,6 @@
 import { Application, Router, Ajv } from "./deps.ts";
 import { Evaluator } from "./evaluator/Evaluator.ts";
+import { formatPolicy } from "./utils.ts";
 const ajv = new Ajv();
 
 const requestSchema = {
@@ -124,6 +125,9 @@ router.post(`/eval`, async context => {
         input: string;
         policy: string;
     };
+
+    console.log(input, policy);
+
     const evaluator = await getEvaluator(evalPool);
 
     try {
@@ -137,7 +141,7 @@ router.post(`/eval`, async context => {
             return;
         }
 
-        const answer = await evaluator.callEval(input, policy);
+        const answer = await evaluator.callEval(input, formatPolicy(policy));
 
         context.response.body = answer
             ? {

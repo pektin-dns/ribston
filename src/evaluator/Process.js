@@ -3,14 +3,15 @@ const watcher = Deno.watchFs(`./watch/${id}/`);
 
 for await (const event of watcher) {
     const rawFile = await Deno.readTextFile(`./work/${id}/policy.json`);
-
     let input, policy;
     try {
         const r = JSON.parse(rawFile);
         input = JSON.parse(r.input);
         policy = r.policy;
     } catch (error) {
-        console.log(JSON.stringify({ error: true, message: "Failed to parse Input" }));
+        console.log(
+            JSON.stringify({ status: "FAILED_TO_PARSE_INPUT", message: "Failed to parse Input" })
+        );
         break;
     }
 
@@ -20,7 +21,7 @@ for await (const event of watcher) {
     try {
         evalOutput = eval(policy);
     } catch (error) {
-        console.log(JSON.stringify({ error: true, message: error.message }));
+        console.log(JSON.stringify({ status: "ERROR", message: error.message }));
         break;
     }
 
